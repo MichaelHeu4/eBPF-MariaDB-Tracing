@@ -1,5 +1,6 @@
 #include "mariadb_trace.h"
 #include "../../vmlinux/vmlinux.h"
+#include "mariadb_trace_settings.h"
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
@@ -12,7 +13,7 @@ struct active_query_t {
 
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
-  __uint(max_entries, 1024);
+  __uint(max_entries, 16384);
   __type(key, u32);
   __type(value, struct active_query_t);
 } active_queries SEC(".maps");
@@ -59,9 +60,15 @@ int BPF_KPROBE(handle_dispatch_return) {
   if (!info)
     return 0;
 
+  u64 bytes = info->bytes_sent;
+
+  if ((ALERT_QUERY_SIZE_MEGABYTES * 1024 * 1024 > bytes) &&
+      !ALERT_ENABLE_INFO_LOGGING) {
+    return 0;
+  }
+
   u64 now = bpf_ktime_get_ns();
   int pid = bpf_get_current_pid_tgid() >> 32;
-
   struct event *ev;
   ev = bpf_ringbuf_reserve(&ringbuf, sizeof(*ev), 0);
   if (!ev) {
