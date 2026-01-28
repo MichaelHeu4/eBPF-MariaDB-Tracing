@@ -60,9 +60,7 @@ int BPF_KPROBE(handle_dispatch_return) {
   if (!info)
     return 0;
 
-  u64 bytes = info->bytes_sent;
-
-  if ((ALERT_QUERY_SIZE_MEGABYTES * 1024 * 1024 > bytes) &&
+  if ((ALERT_QUERY_SIZE_MEGABYTES * 1024 * 1024 > info->bytes_sent) &&
       !ALERT_ENABLE_INFO_LOGGING) {
     return 0;
   }
